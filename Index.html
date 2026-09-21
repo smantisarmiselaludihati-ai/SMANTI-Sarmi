@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Absensi Face ID Guru & TU - SMA Negeri 3 Sarmi</title>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+<style>
+:root{--blue:#0b3d91;--blue2:#1565c0;--green:#2e7d32;--red:#b71c1c;--bg:#f4f7fb;--card:#fff;--text:#222}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--blue);color:var(--text)}
+.wrap{max-width:1080px;margin:auto;padding:18px}.head{color:#fff;text-align:center;padding:10px 14px 18px}.head h1{margin:8px 0 6px;font-size:30px}.head p{margin:0;font-weight:bold;opacity:.95}
+.card{background:var(--card);border-radius:16px;padding:22px;margin:15px 0;box-shadow:0 5px 20px #0003}.card h2{margin-top:0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}.stat{background:#f2f5fa;border-radius:12px;padding:15px;text-align:center}.stat b{display:block;font-size:28px;margin-top:7px}
+.cam{max-width:640px;margin:12px auto;position:relative;background:#111;border-radius:14px;overflow:hidden;min-height:220px}.cam video{width:100%;display:block;transform:scaleX(-1);background:#111}.oval{position:absolute;inset:13% 20%;border:3px solid #fff8;border-radius:50%;pointer-events:none}.camState{position:absolute;left:12px;right:12px;bottom:12px;background:#0009;color:#fff;padding:8px;border-radius:8px;text-align:center;font-size:13px}
+input,select{width:100%;padding:12px;margin:6px 0;border:1px solid #ccc;border-radius:8px;font-size:16px}.buttons{display:flex;flex-wrap:wrap;gap:4px}button{padding:12px 18px;margin:2px;border:0;border-radius:8px;font-weight:bold;cursor:pointer}.blue{background:var(--blue2);color:#fff}.green{background:var(--green);color:#fff}.gray{background:#eee}.red{background:#c62828;color:#fff}.msg{padding:12px;border-radius:8px;margin-top:10px;white-space:pre-line;display:none}.ok{background:#e8f5e9;color:#1b5e20}.bad{background:#ffebee;color:#b71c1c}.info{background:#e3f2fd;color:#0d47a1}.hidden{display:none}
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}th{background:var(--blue2);color:#fff}.note{background:#fff8e1;border-left:4px solid #f9a825;padding:12px;border-radius:8px;margin:10px 0}.launcher{max-width:700px;margin:35px auto;text-align:center}.launcher .card{padding:28px}
+@media(max-width:600px){.wrap{padding:10px}.head h1{font-size:23px}.card{padding:15px}table{display:block;overflow:auto;white-space:nowrap}.cam{min-height:190px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head"><h1>SMA NEGERI 3 SARMI</h1><p>SISTEM ABSENSI FACE ID GURU & TATA USAHA</p></div>
+
+  <div id="launcher" class="launcher hidden">
+    <div class="card">
+      <h2>Aplikasi Kamera</h2>
+      <p>Halaman ini sedang dibuka dari Google Apps Script. Untuk keamanan browser, kamera dijalankan pada halaman HTTPS di luar Apps Script.</p>
+      <div id="launchNote" class="note"></div>
+      <button id="openCameraBtn" class="green" onclick="openExternalApp()">BUKA APLIKASI ABSENSI</button>
+      <p style="font-size:13px;color:#666;margin-bottom:0">Setelah <b>Index.html</b> di-host di HTTPS, simpan URL-nya melalui fungsi <b>setExternalAppUrl()</b> di Apps Script.</p>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+    <div class="card">
+      <h2>Absensi Pegawai</h2>
+      <input id="nip" placeholder="Masukkan NIP / NIK" autocomplete="off">
+      <div class="cam">
+        <video id="video" autoplay muted playsinline></video>
+        <div class="oval"></div>
+        <div id="camState" class="camState">Kamera belum aktif</div>
+      </div>
+      <div class="buttons">
+        <button class="blue" onclick="startCamera()">AKTIFKAN KAMERA</button>
+        <button class="gray" onclick="stopCamera()">MATIKAN KAMERA</button>
+        <button class="green" onclick="absen('MASUK')">ABSEN MASUK</button>
+        <button class="blue" onclick="absen('PULANG')">ABSEN PULANG</button>
+      </div>
+      <div id="msg" class="msg"></div>
+    </div>
+
+    <div class="card"><h2>Dashboard Hari Ini</h2><div class="grid">
+      <div class="stat">Pegawai Aktif<b id="total">-</b></div>
+      <div class="stat">Masuk<b id="masuk">-</b></div>
+      <div class="stat">Terlambat<b id="terlambat">-</b></div>
+      <div class="stat">Pulang<b id="pulang">-</b></div>
+      <div class="stat">Belum Absen<b id="belum">-</b></div>
+    </div></div>
+
+    <div class="card"><h2>Panel Admin</h2>
+      <button class="gray" onclick="toggle('login')">LOGIN ADMIN</button>
+      <div id="login" class="hidden">
+        <input id="user" value="admin" autocomplete="username">
+        <input id="pass" type="password" placeholder="Password admin" autocomplete="current-password">
+        <button class="blue" onclick="login()">LOGIN</button>
+        <button class="gray" onclick="logoutAdmin()">KELUAR</button>
+      </div>
+      <div id="admin" class="hidden"><hr><h3>Pendaftaran Guru / Tata Usaha</h3>
+        <input id="rNip" placeholder="NIP / NIK">
+        <input id="rNama" placeholder="Nama lengkap">
+        <input id="rJab" placeholder="Jabatan">
+        <input id="rUnit" placeholder="Unit kerja (Guru/TU)">
+        <button class="green" onclick="register()">DAFTARKAN WAJAH</button>
+        <div id="amsg" class="msg"></div>
+        <h3>Absensi Hari Ini</h3>
+        <button class="blue" onclick="load()">REFRESH</button>
+        <div id="table"><p>Memuat...</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Saat Index.html di-host biasa/HTTPS, variabel ini tetap false.
+// Code.gs akan menggantinya menjadi true saat file disajikan oleh Apps Script.
+const APPS_SCRIPT_HOSTED = false;
+const CONFIGURED_EXTERNAL_URL = "";
+
+// GANTI nilai ini dengan URL Web App Apps Script Anda yang berakhiran /exec.
+const API_URL = "PASTE_URL_WEB_APP_APPS_SCRIPT_DI_SINI";
+
+let video=document.getElementById('video');
+let stream=null, loaded=false, started=false, adminToken='';
+const pending=new Map();
+
+function byId(id){return document.getElementById(id)}
+function toggle(id){byId(id).classList.toggle('hidden')}
+function show(id,t,c){const e=byId(id);e.textContent=t;e.className='msg '+c;e.style.display='block'}
+function setCamState(t){byId('camState').textContent=t}
+function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\'':'&#39;','"':'&quot;'}[c]))}
+function getApiUrl(){return /^https:\/\//i.test(API_URL)?API_URL.trim():''}
+
+function openExternalApp(){
+  const url=CONFIGURED_EXTERNAL_URL || '';
+  if(!url){
+    byId('launchNote').textContent='URL aplikasi kamera belum disetel. Upload Index.html ini ke hosting HTTPS, masukkan URL-nya dengan setExternalAppUrl(), lalu buka kembali Web App.';
+    return;
+  }
+  window.open(url,'_blank','noopener');
+}
+
+function apiPost(action,data={}){
+  const api=getApiUrl();
+  if(!api) return Promise.reject(new Error('API_URL belum diisi. Edit Index.html dan isi URL Web App Apps Script berakhiran /exec.'));
+  return new Promise((resolve,reject)=>{
+    const requestId=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
+    const timer=setTimeout(()=>{pending.delete(requestId);reject(new Error('Koneksi ke server melebihi batas waktu.'));},20000);
+    pending.set(requestId,{resolve,reject,timer});
+
+    const form=document.createElement('form');
+    form.method='POST';form.action=api;form.target='apiFrame';form.style.display='none';
+    addField(form,'action',action);addField(form,'requestId',requestId);
+    Object.entries(data||{}).forEach(([k,v])=>addField(form,k,typeof v==='string'?v:JSON.stringify(v)));
+    document.body.appendChild(form);form.submit();form.remove();
+  });
+}
+function addField(form,name,value){const i=document.createElement('input');i.type='hidden';i.name=name;i.value=String(value??'');form.appendChild(i)}
+
+window.addEventListener('message',event=>{
+  const m=event.data;
+  if(!m || m.channel!=='ABSENSI_FACEID_SARMI') return;
+  const p=pending.get(m.requestId);if(!p)return;
+  clearTimeout(p.timer);pending.delete(m.requestId);
+  if(m.ok)p.resolve(m.result);else p.reject(new Error(m.error||'Server error'));
+});
+
+async function models(){
+  if(loaded)return;
+  show('msg','Memuat sistem pengenalan wajah...','info');
+  const u='https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+  await faceapi.nets.tinyFaceDetector.loadFromUri(u);
+  await faceapi.nets.faceLandmark68Net.loadFromUri(u);
+  await faceapi.nets.faceRecognitionNet.loadFromUri(u);
+  loaded=true;
+}
+
+async function startCamera(){
+  try{
+    if(APPS_SCRIPT_HOSTED) return show('msg','Kamera harus dibuka dari halaman HTTPS di luar Google Apps Script.','bad');
+    if(!window.isSecureContext) return show('msg','Kamera membutuhkan HTTPS. Host Index.html pada alamat yang diawali https://','bad');
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return show('msg','Browser ini tidak mendukung akses kamera. Gunakan Chrome/Edge terbaru.','bad');
+    await models();
+    if(stream) stopCamera();
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});
+    video.srcObject=stream;
+    await video.play();
+    started=true;setCamState('Kamera aktif');show('msg','Kamera aktif. Posisikan wajah di tengah oval.','info');
+  }catch(e){
+    started=false;
+    let msg=e?.message||String(e);
+    if(e?.name==='NotAllowedError'||/permission|denied/i.test(msg)) msg='Izin kamera ditolak. Klik ikon kamera di address bar Chrome/Edge lalu pilih Izinkan, kemudian muat ulang halaman.';
+    else if(e?.name==='NotFoundError') msg='Kamera tidak ditemukan. Pastikan webcam terpasang dan tidak sedang dipakai aplikasi lain.';
+    show('msg','Kamera gagal: '+msg,'bad');setCamState('Kamera gagal');
+  }
+}
+
+function stopCamera(){
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  video.srcObject=null;started=false;setCamState('Kamera belum aktif');
+}
+
+async function detect(){
+  if(!started||video.readyState<2) return null;
+  return await faceapi.detectSingleFace(video,new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:.5})).withFaceLandmarks().withFaceDescriptor();
+}
+
+async function absen(type){
+  const nip=byId('nip').value.trim();
+  if(!nip)return show('msg','Masukkan NIP/NIK.','bad');
+  if(!started)return show('msg','Aktifkan kamera terlebih dahulu.','bad');
+  try{
+    await models();
+    const s=await apiPost('getStaff',{nip:nip});
+    if(!s)return show('msg','NIP/NIK tidak ditemukan.','bad');
+    if(s.status!=='AKTIF')return show('msg','Status pegawai tidak aktif.','bad');
+    if(!s.descriptor)return show('msg','Wajah belum didaftarkan.','bad');
+    const d=await detect();
+    if(!d)return show('msg','Wajah tidak terdeteksi. Pastikan wajah terlihat jelas dan pencahayaan cukup.','bad');
+    const ref=new Float32Array(JSON.parse(s.descriptor));
+    const dist=faceapi.euclideanDistance(d.descriptor,ref);
+    if(dist>.48)return show('msg','Wajah tidak cocok dengan data pegawai.','bad');
+    show('msg','Wajah cocok. Menyimpan absensi...','info');
+    const r=await apiPost('recordAttendance',{nip:nip,distance:dist,type:type});
+    if(r.duplicate)return show('msg','⚠️ '+r.message,'bad');
+    show('msg','ABSENSI '+r.type+' BERHASIL!\n'+r.nama+'\n'+r.jabatan+'\n'+r.tanggal+' '+r.jam+'\nStatus: '+r.status,'ok');
+    loadDash();load();
+  }catch(e){show('msg',e.message||String(e),'bad')}
+}
+
+async function login(){
+  try{
+    const r=await apiPost('adminLogin',{username:byId('user').value.trim(),password:byId('pass').value});
+    if(!r.success)return show('amsg',r.message||'Login gagal.','bad');
+    adminToken=r.token||'';byId('admin').classList.remove('hidden');byId('login').classList.add('hidden');show('amsg','Login berhasil.','ok');load();
+  }catch(e){show('amsg',e.message||String(e),'bad')}
+}
+function logoutAdmin(){adminToken='';byId('admin').classList.add('hidden');byId('pass').value='';}
+
+async function register(){
+  if(!adminToken)return show('amsg','Login admin terlebih dahulu.','bad');
+  if(!started)return show('amsg','Aktifkan kamera terlebih dahulu.','bad');
+  try{
+    await models();
+    const o={nip:byId('rNip').value.trim(),nama:byId('rNama').value.trim(),jabatan:byId('rJab').value.trim(),unit:byId('rUnit').value.trim()};
+    if(!o.nip||!o.nama||!o.jabatan)return show('amsg','Lengkapi data pegawai.','bad');
+    const d=await detect();if(!d)return show('amsg','Wajah tidak terdeteksi.','bad');
+    o.descriptor=JSON.stringify(Array.from(d.descriptor));
+    const r=await apiPost('registerStaff',{token:adminToken,payload:JSON.stringify(o)});
+    show('amsg',r.message||'Berhasil.','ok');
+    byId('rNip').value='';byId('rNama').value='';byId('rJab').value='';byId('rUnit').value='';
+    loadDash();load();
+  }catch(e){show('amsg',e.message||String(e),'bad')}
+}
+
+async function loadDash(){
+  try{
+    const r=await apiPost('getDashboard');const d=r;
+    byId('total').textContent=d.total;byId('masuk').textContent=d.masuk;byId('terlambat').textContent=d.terlambat;byId('pulang').textContent=d.pulang;byId('belum').textContent=d.belum;
+  }catch(e){console.warn(e)}
+}
+async function load(){
+  if(!adminToken)return;
+  try{
+    const d=await apiPost('getDashboard');
+    let h=d.rows.length?'<table><tr><th>NIP/NIK</th><th>Nama</th><th>Jabatan</th><th>Unit</th><th>Masuk</th><th>Pulang</th><th>Status</th></tr>':'';
+    d.rows.forEach(x=>h+=`<tr><td>${esc(x.nip)}</td><td>${esc(x.nama)}</td><td>${esc(x.jabatan)}</td><td>${esc(x.unit)}</td><td>${esc(x.masuk||'-')}</td><td>${esc(x.pulang||'-')}</td><td>${esc(x.status)}</td></tr>`);
+    h+=d.rows.length?'</table>':'<p>Belum ada absensi hari ini.</p>';byId('table').innerHTML=h;
+  }catch(e){byId('table').innerHTML='<p>'+esc(e.message||String(e))+'</p>'}
+}
+
+function boot(){
+  if(APPS_SCRIPT_HOSTED){
+    byId('launcher').classList.remove('hidden');
+    byId('launchNote').textContent=CONFIGURED_EXTERNAL_URL?'URL aplikasi kamera sudah tersedia. Klik tombol untuk membuka halaman absensi.':'URL aplikasi kamera belum disetel.';
+    return;
+  }
+  byId('app').classList.remove('hidden');
+  if(!getApiUrl())show('msg','Catatan pemasangan: isi API_URL pada bagian atas Index.html dengan URL Web App Apps Script yang berakhiran /exec.','info');
+  loadDash();
+}
+window.addEventListener('beforeunload',stopCamera);
+window.addEventListener('load',boot);
+</script>
+
+<!-- Iframe tersembunyi dipakai untuk POST ke Apps Script tanpa CORS. -->
+<iframe name="apiFrame" id="apiFrame" style="display:none;width:0;height:0;border:0" title="API"></iframe>
+</body>
+</html>
